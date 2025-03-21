@@ -35,202 +35,38 @@ let hub: Hub = {
 const sendMessage = async (message: string) => {
   "use server";
 
+  // Update state with user message
   const messages = getMutableAIState<typeof AI>("messages");
-
   messages.update([
     ...(messages.get() as CoreMessage[]),
     { role: "user", content: message },
   ]);
 
+  // Send the message to your Python backend
+  const response = await fetch("http://127.0.0.1:8080/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: messages.get() }),
+  });
+
+  const { content } = await response.json(); // Full response
+
+  // Create a streamable effect manually
   const contentStream = createStreamableValue("");
   const textComponent = <TextStreamMessage content={contentStream.value} />;
 
-  const { value: stream } = await streamUI({
-    model: openai("gpt-4o"),
-    system: `\
-      - you are a friendly home automation assistant
-      - reply in lower case
-    `,
-    messages: messages.get() as CoreMessage[],
-    text: async function* ({ content, done }) {
-      if (done) {
-        messages.done([
-          ...(messages.get() as CoreMessage[]),
-          { role: "assistant", content },
-        ]);
+  // Simulate typing effect
+  (async () => {
+    for (let i = 0; i < content.length; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 50)); // Typing delay
+      contentStream.update(content.slice(0, i + 1)); // Add one character at a time
+    }
+    contentStream.done(); // Mark stream as completed
+  })();
 
-        contentStream.done();
-      } else {
-        contentStream.update(content);
-      }
-
-      return textComponent;
-    },
-    tools: {
-      viewCameras: {
-        description: "view current active cameras",
-        parameters: z.object({}),
-        generate: async function* ({}) {
-          const toolCallId = generateId();
-
-          messages.done([
-            ...(messages.get() as CoreMessage[]),
-            {
-              role: "assistant",
-              content: [
-                {
-                  type: "tool-call",
-                  toolCallId,
-                  toolName: "viewCameras",
-                  args: {},
-                },
-              ],
-            },
-            {
-              role: "tool",
-              content: [
-                {
-                  type: "tool-result",
-                  toolName: "viewCameras",
-                  toolCallId,
-                  result: `The active cameras are currently displayed on the screen`,
-                },
-              ],
-            },
-          ]);
-
-          return <Message role="assistant" content={<CameraView />} />;
-        },
-      },
-      viewHub: {
-        description:
-          "view the hub that contains current quick summary and actions for temperature, lights, and locks",
-        parameters: z.object({}),
-        generate: async function* ({}) {
-          const toolCallId = generateId();
-
-          messages.done([
-            ...(messages.get() as CoreMessage[]),
-            {
-              role: "assistant",
-              content: [
-                {
-                  type: "tool-call",
-                  toolCallId,
-                  toolName: "viewHub",
-                  args: {},
-                },
-              ],
-            },
-            {
-              role: "tool",
-              content: [
-                {
-                  type: "tool-result",
-                  toolName: "viewHub",
-                  toolCallId,
-                  result: hub,
-                },
-              ],
-            },
-          ]);
-
-          return <Message role="assistant" content={<HubView hub={hub} />} />;
-        },
-      },
-      updateHub: {
-        description: "update the hub with new values",
-        parameters: z.object({
-          hub: z.object({
-            climate: z.object({
-              low: z.number(),
-              high: z.number(),
-            }),
-            lights: z.array(
-              z.object({ name: z.string(), status: z.boolean() }),
-            ),
-            locks: z.array(
-              z.object({ name: z.string(), isLocked: z.boolean() }),
-            ),
-          }),
-        }),
-        generate: async function* ({ hub: newHub }) {
-          hub = newHub;
-          const toolCallId = generateId();
-
-          messages.done([
-            ...(messages.get() as CoreMessage[]),
-            {
-              role: "assistant",
-              content: [
-                {
-                  type: "tool-call",
-                  toolCallId,
-                  toolName: "updateHub",
-                  args: { hub },
-                },
-              ],
-            },
-            {
-              role: "tool",
-              content: [
-                {
-                  type: "tool-result",
-                  toolName: "updateHub",
-                  toolCallId,
-                  result: `The hub has been updated with the new values`,
-                },
-              ],
-            },
-          ]);
-
-          return <Message role="assistant" content={<HubView hub={hub} />} />;
-        },
-      },
-      viewUsage: {
-        description: "view current usage for electricity, water, or gas",
-        parameters: z.object({
-          type: z.enum(["electricity", "water", "gas"]),
-        }),
-        generate: async function* ({ type }) {
-          const toolCallId = generateId();
-
-          messages.done([
-            ...(messages.get() as CoreMessage[]),
-            {
-              role: "assistant",
-              content: [
-                {
-                  type: "tool-call",
-                  toolCallId,
-                  toolName: "viewUsage",
-                  args: { type },
-                },
-              ],
-            },
-            {
-              role: "tool",
-              content: [
-                {
-                  type: "tool-result",
-                  toolName: "viewUsage",
-                  toolCallId,
-                  result: `The current usage for ${type} is currently displayed on the screen`,
-                },
-              ],
-            },
-          ]);
-
-          return (
-            <Message role="assistant" content={<UsageView type={type} />} />
-          );
-        },
-      },
-    },
-  });
-
-  return stream;
+  return textComponent;
 };
+
 
 export type UIState = Array<ReactNode>;
 
