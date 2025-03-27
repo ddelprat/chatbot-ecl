@@ -58,7 +58,7 @@ const sendMessage = async (message: string) => {
   // Simulate typing effect
   (async () => {
     for (let i = 0; i < content.length; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 50)); // Typing delay
+      await new Promise((resolve) => setTimeout(resolve, 20)); // Typing delay
       contentStream.update(content.slice(0, i + 1)); // Add one character at a time
     }
     contentStream.done(); // Mark stream as completed
