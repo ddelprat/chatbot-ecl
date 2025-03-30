@@ -1,3 +1,9 @@
+# Comment lancer l'application
+
+Le chatbot peut être trouvé dans backend/main.py. Il suffit de le lancer pour lancer le serveur. Pour lancer le frontend, faire `npm run dev`.
+
+
+
 # Generative UI with React Server Components and Vercel AI SDK
 
 > **Note**: Development of AI SDK RSC is currently paused. For more information, see [Migrating from AI SDK RSC](https://sdk.vercel.ai/docs/ai-sdk-rsc/migrating-to-ui#background).
